@@ -216,23 +216,30 @@ const handleLogout = async () => {
 
           </div>
 
-          <div className="flex flex-wrap gap-2">
+<div className="flex flex-wrap gap-2">
+  <Link
+    href="/products"
+    className="rounded-full border border-pink-200 bg-white px-5 py-3 text-center font-bold text-pink-500"
+  >
+    ดูหน้าสินค้า
+  </Link>
 
-            <Link
-              href="/products"
-              className="rounded-full border border-pink-200 bg-white px-5 py-3 text-center font-bold text-pink-500"
-            >
-              ดูหน้าสินค้า
-            </Link>
-          <button
-  type="button"
-  onClick={handleLogout}
-  className="rounded-full bg-slate-900 px-5 py-3 font-bold text-white"
->
-  ออกจากระบบ
-</button>
+  <Link
+    href="/admin/stock"
+    className="rounded-full bg-sky-50 px-5 py-3 text-center font-bold text-sky-600"
+  >
+    📦 จัดการสต็อก
+  </Link>
 
-            {orders.length > 0 && (
+  <button
+    type="button"
+    onClick={handleLogout}
+    className="rounded-full bg-slate-900 px-5 py-3 font-bold text-white"
+  >
+    ออกจากระบบ
+  </button>
+
+  {orders.length > 0 && (
               <button
                 type="button"
                 onClick={clearAllOrders}
