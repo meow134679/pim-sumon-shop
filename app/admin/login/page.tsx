@@ -36,8 +36,8 @@ export default function AdminLoginPage() {
         return;
       }
 
-      router.push("/admin");
-      router.refresh();
+     router.push("/admin/stock");
+     router.refresh();
     } catch {
       setMessage("เกิดข้อผิดพลาด กรุณาลองใหม่");
     } finally {
