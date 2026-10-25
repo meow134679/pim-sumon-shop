@@ -2,694 +2,336 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 
-type OrderItem = {
-  id?: string;
-  name: string;
-  price: number;
-  icon?: string;
-  category?: string;
-  packageLabel?: string;
-};
-
-type Order = {
+type StockItem = {
   id: string;
-  customerName: string;
-  contact: string;
-  note?: string;
-  total: number;
-  status: string;
+  product: string;
+  packageName: string;
+  deliveryText: string;
+  status: "available" | "used";
   createdAt: string;
-  slipName?: string;
-  slipData?: string;
-  items: OrderItem[];
 };
 
-const statusOptions = [
-  "รอตรวจสอบการชำระเงิน",
-  "ชำระแล้ว",
-  "กำลังดำเนินการ",
-  "สำเร็จ",
-  "ยกเลิก",
-];
+const STORAGE_KEY = "pimSumonStock";
 
-function getStatusStyle(status: string) {
-  switch (status) {
-    case "ชำระแล้ว":
-      return "bg-green-100 text-green-700";
-
-    case "กำลังดำเนินการ":
-      return "bg-sky-100 text-sky-700";
-
-    case "สำเร็จ":
-      return "bg-emerald-100 text-emerald-700";
-
-    case "ยกเลิก":
-      return "bg-red-100 text-red-700";
-
-    default:
-      return "bg-yellow-100 text-yellow-700";
-  }
-}
-
-export default function AdminPage() {
-  const router = useRouter();
-
-const handleLogout = async () => {
-  await fetch("/api/admin-logout", {
-    method: "POST",
-  });
-
-  router.push("/admin/login");
-  router.refresh();
-};
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [filterStatus, setFilterStatus] = useState("ทั้งหมด");
+export default function StockPage() {
+  const [stocks, setStocks] = useState<StockItem[]>([]);
+  const [product, setProduct] = useState("");
+  const [packageName, setPackageName] = useState("");
+  const [deliveryText, setDeliveryText] = useState("");
   const [search, setSearch] = useState("");
-  const [selectedSlip, setSelectedSlip] = useState<Order | null>(null);
 
   useEffect(() => {
-    const savedOrders =
-      localStorage.getItem("pimSumonOrders");
+    const saved = localStorage.getItem(STORAGE_KEY);
 
-    if (!savedOrders) {
-      setOrders([]);
-      return;
-    }
+    if (!saved) return;
 
     try {
-      const parsed = JSON.parse(savedOrders);
+      const parsed = JSON.parse(saved);
 
       if (Array.isArray(parsed)) {
-        setOrders(parsed);
+        setStocks(parsed);
       }
     } catch {
-      setOrders([]);
+      setStocks([]);
     }
   }, []);
 
-  const saveOrders = (newOrders: Order[]) => {
-    setOrders(newOrders);
+  const saveStocks = (newStocks: StockItem[]) => {
+    setStocks(newStocks);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newStocks));
+  };
 
-    localStorage.setItem(
-      "pimSumonOrders",
-      JSON.stringify(newOrders)
-    );
+  const addStock = () => {
+    if (!product.trim()) {
+      alert("กรุณาใส่ชื่อสินค้า");
+      return;
+    }
+
+    if (!packageName.trim()) {
+      alert("กรุณาใส่แพ็กเกจ");
+      return;
+    }
+
+    if (!deliveryText.trim()) {
+      alert("กรุณาใส่ข้อมูลสำหรับส่งสินค้า");
+      return;
+    }
+
+    const item: StockItem = {
+      id: `STOCK-${Date.now()}`,
+      product: product.trim(),
+      packageName: packageName.trim(),
+      deliveryText: deliveryText.trim(),
+      status: "available",
+      createdAt: new Date().toISOString(),
+    };
+
+    saveStocks([item, ...stocks]);
+
+    setProduct("");
+    setPackageName("");
+    setDeliveryText("");
+  };
+
+  const deleteStock = (id: string) => {
+    const confirmDelete = window.confirm("ต้องการลบ Stock นี้หรือไม่?");
+
+    if (!confirmDelete) return;
+
+    const newStocks = stocks.filter((item) => item.id !== id);
+    saveStocks(newStocks);
   };
 
   const changeStatus = (
-    orderId: string,
-    newStatus: string
+    id: string,
+    status: "available" | "used"
   ) => {
-    const newOrders = orders.map((order) =>
-      order.id === orderId
+    const newStocks = stocks.map((item) =>
+      item.id === id
         ? {
-            ...order,
-            status: newStatus,
+            ...item,
+            status,
           }
-        : order
+        : item
     );
 
-    saveOrders(newOrders);
+    saveStocks(newStocks);
   };
 
-  const deleteOrder = (orderId: string) => {
-    const confirmed = window.confirm(
-      "ต้องการลบออเดอร์นี้ใช่ไหม?"
-    );
+  const filteredStocks = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
 
-    if (!confirmed) return;
+    if (!keyword) return stocks;
 
-    const newOrders = orders.filter(
-      (order) => order.id !== orderId
-    );
-
-    saveOrders(newOrders);
-  };
-
-  const clearAllOrders = () => {
-    const confirmed = window.confirm(
-      "ต้องการลบออเดอร์ทั้งหมดใช่ไหม?"
-    );
-
-    if (!confirmed) return;
-
-    saveOrders([]);
-  };
-
-  const filteredOrders = useMemo(() => {
-    return orders.filter((order) => {
-      const statusMatch =
-        filterStatus === "ทั้งหมด" ||
-        order.status === filterStatus;
-
-      const keyword =
-        search.trim().toLowerCase();
-
-      const searchMatch =
-        keyword === "" ||
-        order.id
-          .toLowerCase()
-          .includes(keyword) ||
-        order.customerName
-          .toLowerCase()
-          .includes(keyword) ||
-        order.contact
-          .toLowerCase()
-          .includes(keyword);
-
-      return statusMatch && searchMatch;
+    return stocks.filter((item) => {
+      return (
+        item.product.toLowerCase().includes(keyword) ||
+        item.packageName.toLowerCase().includes(keyword)
+      );
     });
-  }, [orders, filterStatus, search]);
+  }, [stocks, search]);
 
-  const pendingCount = orders.filter(
-    (order) =>
-      order.status ===
-      "รอตรวจสอบการชำระเงิน"
+  const availableCount = stocks.filter(
+    (item) => item.status === "available"
   ).length;
 
-  const paidCount = orders.filter(
-    (order) =>
-      order.status === "ชำระแล้ว"
+  const usedCount = stocks.filter(
+    (item) => item.status === "used"
   ).length;
-
-  const completedCount = orders.filter(
-    (order) =>
-      order.status === "สำเร็จ"
-  ).length;
-
-  const totalSales = orders
-    .filter(
-      (order) =>
-        order.status !== "ยกเลิก"
-    )
-    .reduce(
-      (sum, order) =>
-        sum + Number(order.total || 0),
-      0
-    );
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-pink-50 via-white to-sky-50 text-slate-700">
+    <main className="min-h-screen bg-gradient-to-b from-pink-50 via-white to-sky-50 px-4 py-8 text-slate-700">
+      <div className="mx-auto max-w-6xl">
 
-      <div className="mx-auto max-w-7xl px-5 py-8">
-
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-
+        <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-
             <Link
-              href="/"
+              href="/admin"
               className="text-sm font-bold text-pink-500"
             >
-              ← กลับหน้าร้าน
+              ← กลับหลังร้าน
             </Link>
 
-            <h1 className="mt-3 text-3xl font-black">
-              หลังร้าน Pim Sumon 🛍️
+            <h1 className="mt-3 text-3xl font-black text-slate-900">
+              Stock สินค้า 
             </h1>
 
-            <p className="mt-1 text-sm text-slate-400">
-              ตรวจสอบออเดอร์ สลิป และสถานะการชำระเงิน
+            <p className="mt-1 text-sm text-slate-500">
+              เพิ่มและจัดการสินค้าพร้อมส่ง
             </p>
-
           </div>
 
-<div className="flex flex-wrap gap-2">
-  <Link
-    href="/products"
-    className="rounded-full border border-pink-200 bg-white px-5 py-3 text-center font-bold text-pink-500"
-  >
-    ดูหน้าสินค้า
-  </Link>
-
-  <Link
-    href="/admin/stock"
-    className="rounded-full bg-sky-50 px-5 py-3 text-center font-bold text-sky-600"
-  >
-    📦 จัดการสต็อก
-  </Link>
-
-  <button
-    type="button"
-    onClick={handleLogout}
-    className="rounded-full bg-slate-900 px-5 py-3 font-bold text-white"
-  >
-    ออกจากระบบ
-  </button>
-
-  {orders.length > 0 && (
-              <button
-                type="button"
-                onClick={clearAllOrders}
-                className="rounded-full bg-red-50 px-5 py-3 font-bold text-red-500"
-              >
-                ล้างออเดอร์ทั้งหมด
-              </button>
-            )}
-
-          </div>
-
-        </div>
-
-        <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
-
-          <div className="rounded-3xl border border-pink-100 bg-white p-5 shadow-sm">
-
-            <p className="text-sm text-slate-400">
-              ออเดอร์ทั้งหมด
-            </p>
-
-            <p className="mt-2 text-3xl font-black text-pink-500">
-              {orders.length}
-            </p>
-
-          </div>
-
-          <div className="rounded-3xl border border-yellow-100 bg-white p-5 shadow-sm">
-
-            <p className="text-sm text-slate-400">
-              รอตรวจสอบ
-            </p>
-
-            <p className="mt-2 text-3xl font-black text-yellow-500">
-              {pendingCount}
-            </p>
-
-          </div>
-
-          <div className="rounded-3xl border border-green-100 bg-white p-5 shadow-sm">
-
-            <p className="text-sm text-slate-400">
-              ชำระแล้ว
-            </p>
-
-            <p className="mt-2 text-3xl font-black text-green-600">
-              {paidCount}
-            </p>
-
-          </div>
-
-          <div className="rounded-3xl border border-sky-100 bg-white p-5 shadow-sm">
-
-            <p className="text-sm text-slate-400">
-              ยอดขายรวม
-            </p>
-
-            <p className="mt-2 text-3xl font-black text-sky-600">
-              ฿{totalSales}
-            </p>
-
-          </div>
-
-        </div>
-
-        <div className="mt-6 rounded-3xl border border-pink-100 bg-white p-5 shadow-sm">
-
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-
-            <input
-              type="text"
-              value={search}
-              onChange={(event) =>
-                setSearch(event.target.value)
-              }
-              placeholder="ค้นหาเลขออเดอร์ ชื่อ หรือ Line..."
-              className="rounded-2xl border border-pink-100 px-4 py-3 outline-none focus:border-pink-400"
-            />
-
-            <select
-              value={filterStatus}
-              onChange={(event) =>
-                setFilterStatus(
-                  event.target.value
-                )
-              }
-              className="rounded-2xl border border-pink-100 bg-white px-4 py-3 outline-none"
-            >
-
-              <option value="ทั้งหมด">
-                ทุกสถานะ
-              </option>
-
-              {statusOptions.map(
-                (status) => (
-                  <option
-                    key={status}
-                    value={status}
-                  >
-                    {status}
-                  </option>
-                )
-              )}
-
-            </select>
-
-          </div>
-
-        </div>
-
-        <div className="mt-6 space-y-5">
-
-          {filteredOrders.length === 0 && (
-            <div className="rounded-3xl border border-pink-100 bg-white p-12 text-center shadow-sm">
-
-              <div className="text-6xl">
-                
-              </div>
-
-              <h2 className="mt-4 text-xl font-black">
-                ยังไม่มีออเดอร์
-              </h2>
-
-              <p className="mt-2 text-sm text-slate-400">
-                เมื่อลูกค้าสั่งซื้อ ออเดอร์จะแสดงตรงนี้
-              </p>
-
-            </div>
-          )}
-
-{filteredOrders.map((order, index) => (
-  <div
-    key={`${order.id || "order"}-${index}`}
-              className="rounded-3xl border border-pink-100 bg-white p-5 shadow-sm"
-            >
-
-              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-
-                <div>
-
-                  <p className="text-xs font-bold text-slate-400">
-                    เลขคำสั่งซื้อ
-                  </p>
-
-                  <h2 className="mt-1 text-xl font-black text-pink-500">
-                    {order.id}
-                  </h2>
-
-                  <p className="mt-2 text-sm text-slate-400">
-                    {order.createdAt}
-                  </p>
-
-                </div>
-
-                <span
-                  className={`w-fit rounded-full px-4 py-2 text-sm font-bold ${getStatusStyle(
-                    order.status
-                  )}`}
-                >
-                  {order.status}
-                </span>
-
-              </div>
-
-              <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
-
-                <div className="rounded-2xl bg-pink-50 p-4">
-
-                  <p className="font-black">
-                     ข้อมูลลูกค้า
-                  </p>
-
-                  <p className="mt-3">
-                    ชื่อ: {order.customerName}
-                  </p>
-
-                  <p className="mt-1">
-                    ติดต่อ: {order.contact}
-                  </p>
-
-                  {order.note && (
-                    <p className="mt-1">
-                      หมายเหตุ: {order.note}
-                    </p>
-                  )}
-
-                </div>
-
-                <div className="rounded-2xl bg-sky-50 p-4">
-
-                  <p className="font-black">
-                    🛍️ รายการสินค้า
-                  </p>
-
-                  <div className="mt-3 space-y-3">
-
-                    {order.items?.map(
-                      (item, index) => (
-                        <div
-                          key={`${order.id}-${index}`}
-                          className="flex items-start justify-between gap-3"
-                        >
-
-                          <div>
-
-                            <p className="font-bold">
-                              {item.icon} {item.name}
-                            </p>
-
-                            {item.packageLabel && (
-                              <p className="text-xs text-slate-400">
-                                {item.packageLabel}
-                              </p>
-                            )}
-
-                          </div>
-
-                          <span className="shrink-0 font-bold text-pink-500">
-                            ฿{item.price}
-                          </span>
-
-                        </div>
-                      )
-                    )}
-
-                  </div>
-
-                  <div className="mt-4 flex items-center justify-between border-t border-sky-100 pt-3">
-
-                    <span className="font-black">
-                      ยอดรวม
-                    </span>
-
-                    <span className="text-xl font-black text-pink-500">
-                      ฿{order.total}
-                    </span>
-
-                  </div>
-
-                </div>
-
-              </div>
-
-              <div className="mt-5 rounded-2xl border border-pink-100 bg-pink-50 p-4">
-
-                <div className="flex flex-wrap items-center justify-between gap-3">
-
-                  <div>
-
-                    <p className="font-black">
-                      🧾 สลิปการชำระเงิน
-                    </p>
-
-                    <p className="mt-1 text-xs text-slate-400">
-                      {order.slipName ||
-                        "ไม่มีชื่อไฟล์"}
-                    </p>
-
-                  </div>
-
-                  {order.slipData ? (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setSelectedSlip(order)
-                      }
-                      className="rounded-full bg-pink-500 px-4 py-2 text-sm font-bold text-white"
-                    >
-                      ดูสลิป
-                    </button>
-                  ) : (
-                    <span className="rounded-full bg-slate-100 px-4 py-2 text-xs font-bold text-slate-400">
-                      ไม่มีรูปสลิป
-                    </span>
-                  )}
-
-                </div>
-
-                {order.slipData && (
-                  <img
-                    src={order.slipData}
-                    alt="Payment slip"
-                    className="mt-4 max-h-72 w-full rounded-2xl bg-white object-contain"
-                  />
-                )}
-
-              </div>
-
-              <div className="mt-5">
-
-                <label className="text-sm font-bold">
-                  เปลี่ยนสถานะ
-                </label>
-
-                <select
-                  value={order.status}
-                  onChange={(event) =>
-                    changeStatus(
-                      order.id,
-                      event.target.value
-                    )
-                  }
-                  className="mt-2 w-full rounded-2xl border border-pink-100 bg-white px-4 py-3 outline-none focus:border-pink-400"
-                >
-
-                  {statusOptions.map(
-                    (status) => (
-                      <option
-                        key={status}
-                        value={status}
-                      >
-                        {status}
-                      </option>
-                    )
-                  )}
-
-                </select>
-
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-3">
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    changeStatus(
-                      order.id,
-                      "ชำระแล้ว"
-                    )
-                  }
-                  className="rounded-full bg-green-500 px-4 py-2 text-sm font-bold text-white"
-                >
-                  ✓ ยืนยันชำระแล้ว
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    changeStatus(
-                      order.id,
-                      "กำลังดำเนินการ"
-                    )
-                  }
-                  className="rounded-full bg-sky-500 px-4 py-2 text-sm font-bold text-white"
-                >
-                  กำลังดำเนินการ
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    changeStatus(
-                      order.id,
-                      "สำเร็จ"
-                    )
-                  }
-                  className="rounded-full bg-emerald-500 px-4 py-2 text-sm font-bold text-white"
-                >
-                  ✓ ปิดงาน
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    changeStatus(
-                      order.id,
-                      "ยกเลิก"
-                    )
-                  }
-                  className="rounded-full bg-orange-50 px-4 py-2 text-sm font-bold text-orange-500"
-                >
-                  ยกเลิก
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    deleteOrder(order.id)
-                  }
-                  className="rounded-full bg-red-50 px-4 py-2 text-sm font-bold text-red-500"
-                >
-                  ลบออเดอร์
-                </button>
-
-              </div>
-
-            </div>
-          ))}
-
-        </div>
-
-        <div className="mt-8 rounded-3xl border border-pink-100 bg-white p-5 text-sm text-slate-500 shadow-sm">
-          ✅ ออเดอร์สำเร็จแล้ว {completedCount} รายการ
-        </div>
-
-      </div>
-
-      {selectedSlip &&
-        selectedSlip.slipData && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-5"
-            onClick={() =>
-              setSelectedSlip(null)
-            }
+          <Link
+            href="/products"
+            className="rounded-full border border-pink-200 bg-white px-5 py-3 text-center font-bold text-pink-500"
           >
+            ดูหน้าสินค้า
+          </Link>
+        </div>
 
-            <div
-              className="max-h-[90vh] w-full max-w-xl overflow-auto rounded-3xl bg-white p-5"
-              onClick={(event) =>
-                event.stopPropagation()
-              }
-            >
+        <div className="mb-6 grid gap-4 sm:grid-cols-3">
+          <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-pink-100">
+            <p className="text-sm text-slate-400">
+              Stock ทั้งหมด
+            </p>
 
-              <div className="flex items-center justify-between gap-4">
+            <p className="mt-2 text-3xl font-black text-slate-900">
+              {stocks.length}
+            </p>
+          </div>
 
-                <div>
+          <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-pink-100">
+            <p className="text-sm text-slate-400">
+              พร้อมขาย
+            </p>
 
-                  <p className="text-sm text-slate-400">
-                    สลิปออเดอร์
-                  </p>
+            <p className="mt-2 text-3xl font-black text-emerald-500">
+              {availableCount}
+            </p>
+          </div>
 
-                  <p className="font-black text-pink-500">
-                    {selectedSlip.id}
-                  </p>
+          <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-pink-100">
+            <p className="text-sm text-slate-400">
+              ใช้แล้ว
+            </p>
 
-                </div>
+            <p className="mt-2 text-3xl font-black text-orange-500">
+              {usedCount}
+            </p>
+          </div>
+        </div>
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    setSelectedSlip(null)
-                  }
-                  className="rounded-full bg-slate-100 px-4 py-2 font-bold"
-                >
-                  ✕
-                </button>
+        <section className="rounded-[32px] bg-white p-6 shadow-sm ring-1 ring-pink-100">
+          <h2 className="text-xl font-black text-slate-900">
+            ➕ เติม Stock
+          </h2>
 
-              </div>
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm font-bold">
+                ชื่อสินค้า
+              </label>
 
-              <img
-                src={selectedSlip.slipData}
-                alt="Payment slip"
-                className="mt-5 max-h-[70vh] w-full rounded-2xl object-contain"
+              <input
+                value={product}
+                onChange={(e) => setProduct(e.target.value)}
+                placeholder="เช่น iQIYI"
+                className="w-full rounded-2xl border border-pink-100 px-4 py-3 text-slate-900 placeholder:text-slate-400 outline-none focus:border-pink-300"
               />
-
             </div>
 
-          </div>
-        )}
+            <div>
+              <label className="mb-2 block text-sm font-bold">
+                แพ็กเกจ
+              </label>
 
+              <input
+                value={packageName}
+                onChange={(e) => setPackageName(e.target.value)}
+                placeholder="เช่น 7 วัน Premium"
+                className="w-full rounded-2xl border border-pink-100 px-4 py-3 outline-none focus:border-pink-300"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <label className="mb-2 block text-sm font-bold">
+              ข้อมูลสำหรับส่งสินค้า
+            </label>
+
+            <textarea
+              value={deliveryText}
+              onChange={(e) => setDeliveryText(e.target.value)}
+              placeholder={"ใช้ข้อความทดสอบก่อน เช่น\nCODE: TEST-001"}
+              rows={5}
+              className="w-full resize-none rounded-2xl border border-pink-100 px-4 py-3 outline-none focus:border-pink-300"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={addStock}
+            className="mt-5 w-full rounded-2xl bg-gradient-to-r from-pink-500 to-rose-500 px-5 py-3 font-black text-white md:w-auto"
+          >
+            + เพิ่มเข้า Stock
+          </button>
+        </section>
+
+        <section className="mt-6">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="ค้นหาชื่อสินค้า หรือแพ็กเกจ..."
+            className="w-full rounded-2xl border border-pink-100 bg-white px-5 py-4 outline-none focus:border-pink-300"
+          />
+
+          <div className="mt-5 space-y-4">
+            {filteredStocks.length === 0 ? (
+              <div className="rounded-[32px] bg-white p-10 text-center shadow-sm ring-1 ring-pink-100">
+                <div className="text-5xl"></div>
+
+                <p className="mt-4 font-black text-slate-900">
+                  ยังไม่มี Stock
+                </p>
+
+                <p className="mt-1 text-sm text-slate-400">
+                  เพิ่มสินค้าจากแบบฟอร์มด้านบนได้เลย
+                </p>
+              </div>
+            ) : (
+              filteredStocks.map((item) => (
+                <div
+                  key={item.id}
+                  className="rounded-[28px] bg-white p-5 shadow-sm ring-1 ring-pink-100"
+                >
+                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-lg font-black text-slate-900">
+                          {item.product}
+                        </h3>
+
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-bold ${
+                            item.status === "available"
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-orange-100 text-orange-700"
+                          }`}
+                        >
+                          {item.status === "available"
+                            ? "พร้อมขาย"
+                            : "ใช้แล้ว"}
+                        </span>
+                      </div>
+
+                      <p className="mt-1 text-sm font-bold text-pink-500">
+                        {item.packageName}
+                      </p>
+
+                      <pre className="mt-4 whitespace-pre-wrap rounded-2xl bg-slate-950 p-4 text-sm text-white">
+                        {item.deliveryText}
+                      </pre>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {item.status === "available" ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            changeStatus(item.id, "used")
+                          }
+                          className="rounded-full bg-orange-50 px-4 py-2 text-sm font-bold text-orange-600"
+                        >
+                          ทำเครื่องหมายว่าใช้แล้ว
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            changeStatus(item.id, "available")
+                          }
+                          className="rounded-full bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-600"
+                        >
+                          คืนเข้า Stock
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => deleteStock(item.id)}
+                        className="rounded-full bg-red-50 px-4 py-2 text-sm font-bold text-red-500"
+                      >
+                        ลบ
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+      </div>
     </main>
   );
 }
