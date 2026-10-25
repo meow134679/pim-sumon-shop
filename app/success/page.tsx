@@ -3,22 +3,31 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
-type Product = {
+type OrderItem = {
+  id?: string;
   name: string;
-  category: string;
+  category?: string;
+  icon?: string;
+  packageLabel?: string;
   price: number;
-  icon: string;
 };
 
 type Order = {
-  orderId: string;
+  id: string;
   customerName: string;
   contact: string;
-  note: string;
-  products: Product[];
+  note?: string;
   total: number;
   status: string;
   createdAt: string;
+  paymentMethod?: string;
+  slipName?: string;
+  slipData?: string;
+  items?: OrderItem[];
+
+  // รองรับออเดอร์เวอร์ชันเก่า
+  orderId?: string;
+  products?: OrderItem[];
 };
 
 export default function SuccessPage() {
@@ -102,29 +111,30 @@ export default function SuccessPage() {
               รายการสินค้า 🛍️
             </h2>
 
-            <div className="mt-3 space-y-2">
-              {order.items.map((product, index) => (
-                <div
-                  key={`${product.name}-${index}`}
-                  className="flex items-center justify-between rounded-2xl border border-pink-50 p-3"
-                >
-                  <div>
-                    <p className="font-bold">
-                      {product.icon} {product.name}
-                    </p >
+<div className="mt-3 space-y-2">
+  {(order.items || order.products || []).map(
+    (product: OrderItem, index: number) => (
+      <div
+        key={`${product.name}-${index}`}
+        className="flex items-center justify-between rounded-2xl border border-pink-50 p-3"
+      >
+        <div>
+          <p className="font-bold">
+            {product.icon} {product.name}
+          </p>
 
-                    <p className="text-xs text-slate-400">
-                      {product.category}
-                    </p >
-                  </div>
+          <p className="text-xs text-slate-400">
+            {product.category}
+          </p>
+        </div>
 
-                  <p className="font-black text-pink-500">
-                    ฿{product.price}
-                  </p >
-                </div>
-              ))}
-            </div>
-
+        <p className="font-black text-pink-500">
+          ฿{product.price}
+        </p>
+      </div>
+    )
+  )}
+</div>
             <div className="mt-4 flex items-center justify-between border-t border-pink-100 pt-4 text-lg font-black">
               <span>ยอดรวม</span>
 
