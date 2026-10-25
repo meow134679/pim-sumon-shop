@@ -603,6 +603,31 @@ export default function ProductsPage() {
   >({});
 
   const [cart, setCart] = useState<CartItem[]>([]);
+  const isProductInStock = (product: Product) => {
+  if (typeof window === "undefined") return false;
+
+  const selectedIndex = selectedPackages[product.id] ?? 0;
+  const selectedPackage = product.packages[selectedIndex];
+
+  if (!selectedPackage) return false;
+
+  try {
+    const savedStock = localStorage.getItem("pimSumonStock");
+
+    if (!savedStock) return false;
+
+    const stockItems = JSON.parse(savedStock);
+
+    return stockItems.some(
+      (item: any) =>
+        item.status === "available" &&
+        item.product === product.name &&
+        item.packageName === selectedPackage.label
+    );
+  } catch {
+    return false;
+  }
+};
 
   // ======================================================
   // โหลดตะกร้าจาก localStorage
@@ -685,6 +710,35 @@ if (!productCategory?.enabled) {
       product.packages[selectedIndex];
 
     if (!selectedPackage) return;
+const selectedPackage =
+  product.packages[selectedIndex];
+
+if (!selectedPackage) return;
+
+// เช็ก Stock ของสินค้า + แพ็กเกจ
+const savedStock = localStorage.getItem("pimSumonStock");
+
+let stockItems: any[] = [];
+
+if (savedStock) {
+  try {
+    stockItems = JSON.parse(savedStock);
+  } catch {
+    stockItems = [];
+  }
+}
+
+const availableStock = stockItems.find(
+  (item) =>
+    item.status === "available" &&
+    item.product === product.name &&
+    item.packageName === selectedPackage.label
+);
+
+if (!availableStock) {
+  alert("สินค้าหรือแพ็กเกจนี้หมดสต็อกแล้ว");
+  return;
+}
 
     const newItem: CartItem = {
       id: `${product.id}-${Date.now()}`,
@@ -1077,13 +1131,18 @@ if (!productCategory?.enabled) {
 
                   {/* เพิ่มตะกร้า */}
 
-                  <button
-                    type="button"
-                    onClick={() => addToCart(product)}
-                    className="mt-5 w-full rounded-full bg-pink-500 py-3 font-bold text-white transition hover:bg-pink-600 active:scale-[0.98]"
-                  >
-                    เพิ่มลงตะกร้า ♡
-                  </button>
+<button
+  type="button"
+  onClick={() => addToCart(product)}
+  disabled={!isProductInStock(product)}
+  className={`mt-5 w-full rounded-full py-3 font-bold transition ${
+    isProductInStock(product)
+      ? "bg-pink-500 text-white hover:bg-pink-600 active:scale-[0.98]"
+      : "cursor-not-allowed bg-slate-200 text-slate-400"
+  }`}
+>
+  {isProductInStock(product) ? "เพิ่มลงตะกร้า 🛒" : "สินค้าหมด"}
+</button>
                 </div>
               );
             })}
