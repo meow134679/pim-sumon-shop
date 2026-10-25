@@ -17,22 +17,10 @@ type Product = {
   description?: string;
   packages: PackageOption[];
 };
-
-type CartItem = {
-  id: string;
-  name: string;
-  category: string;
-  icon: string;
-  packageLabel: string;
-  price: number;
-};
-
-type StockItem = {
-  id: string;
-  product: string;
-  packageName: string;
-  status: "available" | "used";
-};
+if (!isProductInStock(product)) {
+  alert("สินค้าหรือแพ็กเกจนี้หมดสต็อกแล้ว");
+  return;
+}
 
 // ======================================================
 // สินค้าทั้งหมด
