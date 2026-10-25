@@ -31,28 +31,42 @@ export default function StockPage() {
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState("");
 
-  useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
+useEffect(() => {
+  loadStocks();
+}, []);
 
-    if (!saved) return;
+const loadStocks = async () => {
+  try {
+    const response = await fetch("/api/stock", {
+      cache: "no-store",
+    });
 
-    try {
-      const parsed = JSON.parse(saved);
+    const data = await response.json();
 
-      if (Array.isArray(parsed)) {
-        setStocks(parsed);
-      }
-    } catch {
-      setStocks([]);
+    if (!response.ok) {
+      setMessage(data.message || "โหลด Stock ไม่สำเร็จ");
+      return;
     }
-  }, []);
 
-  const saveStocks = (newStocks: StockItem[]) => {
-    setStocks(newStocks);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newStocks));
-  };
+    setStocks(
+  (data.stock || []).map((item: any) => ({
+    id: item.id,
+    product: item.product,
+    packageName: item.package_name,
+    email: item.email || "",
+    password: item.password || "",
+    deliveryText: item.delivery_text || "",
+    status: item.status,
+    createdAt: item.created_at,
+  }))
+);
+} catch {
+  setMessage("โหลด Stock ไม่สำเร็จ");
+  setStocks([]);
+}
+};
 
-  const addStock = () => {
+const addStock = async () => {
     if (!product.trim()) {
       setMessage("กรุณากรอกชื่อสินค้า");
       return;
@@ -68,52 +82,110 @@ export default function StockPage() {
       return;
     }
 
-    const item: StockItem = {
-      id: `STOCK-${Date.now()}`,
+try {
+  setMessage("กำลังเพิ่ม Stock...");
+
+  const response = await fetch("/api/stock", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
       product: product.trim(),
       packageName: packageName.trim(),
       email: email.trim(),
       password: password.trim(),
       deliveryText: deliveryText.trim(),
-      status: "available",
-      createdAt: new Date().toISOString(),
-    };
+    }),
+  });
 
-    saveStocks([item, ...stocks]);
+  const data = await response.json();
 
-    setProduct("");
-    setPackageName("");
-    setEmail("");
-    setPassword("");
-    setDeliveryText("");
-    setMessage("");
+  if (!response.ok) {
+    setMessage(data.message || "เพิ่ม Stock ไม่สำเร็จ");
+    return;
+  }
+
+  setProduct("");
+  setPackageName("");
+  setEmail("");
+  setPassword("");
+  setDeliveryText("");
+
+  setMessage("✅ เพิ่ม Stock สำเร็จ");
+
+  await loadStocks();
+} catch {
+  setMessage("เพิ่ม Stock ไม่สำเร็จ กรุณาลองใหม่");
+}
+
   };
 
-  const deleteStock = (id: string) => {
-    const confirmDelete = window.confirm(
-      "ต้องการลบ Stock นี้หรือไม่?"
+const deleteStock = async (id: string) => {
+  const confirmDelete = window.confirm(
+    "ต้องการลบ Stock นี้หรือไม่?"
+  );
+
+  if (!confirmDelete) return;
+
+  try {
+    const response = await fetch("/api/stock", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ id }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      setMessage(data.message || "ลบ Stock ไม่สำเร็จ");
+      return;
+    }
+
+    setMessage("✅ ลบ Stock สำเร็จ");
+
+    await loadStocks();
+  } catch {
+    setMessage("ลบ Stock ไม่สำเร็จ กรุณาลองใหม่");
+  }
+};
+
+const changeStatus = async (
+  id: string,
+  status: "available" | "used"
+) => {
+  try {
+    const response = await fetch("/api/stock", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        id,
+        status,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      setMessage(data.message || "เปลี่ยนสถานะ Stock ไม่สำเร็จ");
+      return;
+    }
+
+    setMessage(
+      status === "used"
+        ? "✅ ทำเครื่องหมายว่าใช้แล้ว"
+        : "✅ เปลี่ยนกลับเป็นพร้อมขายแล้ว"
     );
 
-    if (!confirmDelete) return;
-
-    saveStocks(stocks.filter((item) => item.id !== id));
-  };
-
-  const changeStatus = (
-    id: string,
-    status: "available" | "used"
-  ) => {
-    const updated = stocks.map((item) =>
-      item.id === id
-        ? {
-            ...item,
-            status,
-          }
-        : item
-    );
-
-    saveStocks(updated);
-  };
+    await loadStocks();
+  } catch {
+    setMessage("เปลี่ยนสถานะ Stock ไม่สำเร็จ กรุณาลองใหม่");
+  }
+};
 
   const copyStock = async (item: StockItem) => {
     const text = [

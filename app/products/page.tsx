@@ -27,6 +27,13 @@ type CartItem = {
   price: number;
 };
 
+type StockItem = {
+  id: string;
+  product: string;
+  packageName: string;
+  status: "available" | "used";
+};
+
 // ======================================================
 // สินค้าทั้งหมด
 // ======================================================
@@ -603,30 +610,57 @@ export default function ProductsPage() {
   >({});
 
   const [cart, setCart] = useState<CartItem[]>([]);
-  const isProductInStock = (product: Product) => {
-  if (typeof window === "undefined") return false;
+const [stocks, setStocks] = useState<StockItem[]>([]);
+const [stockLoaded, setStockLoaded] = useState(false);
 
+const loadStocks = async () => {
+  try {
+    const response = await fetch("/api/stock", {
+      cache: "no-store",
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      setStocks([]);
+      setStockLoaded(true);
+      return;
+    }
+
+    setStocks(
+      (data.stock || []).map((item: any) => ({
+        id: item.id,
+        product: item.product,
+        packageName: item.package_name,
+        status: item.status,
+      }))
+    );
+
+    setStockLoaded(true);
+  } catch {
+    setStocks([]);
+    setStockLoaded(true);
+  }
+};
+
+useEffect(() => {
+  loadStocks();
+}, []);
+
+const isProductInStock = (product: Product) => {
   const selectedIndex = selectedPackages[product.id] ?? 0;
   const selectedPackage = product.packages[selectedIndex];
 
   if (!selectedPackage) return false;
 
-  try {
-    const savedStock = localStorage.getItem("pimSumonStock");
-
-    if (!savedStock) return false;
-
-    const stockItems = JSON.parse(savedStock);
-
-    return stockItems.some(
-      (item: any) =>
-        item.status === "available" &&
-        item.product === product.name &&
-        item.packageName === selectedPackage.label
-    );
-  } catch {
-    return false;
-  }
+  return stocks.some(
+    (item) =>
+      item.status === "available" &&
+      item.product.trim().toLowerCase() ===
+        product.name.trim().toLowerCase() &&
+      item.packageName.trim().toLowerCase() ===
+        selectedPackage.label.trim().toLowerCase()
+  );
 };
 
   // ======================================================
