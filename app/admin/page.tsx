@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 type OrderItem = {
   id?: string;
@@ -53,6 +54,16 @@ function getStatusStyle(status: string) {
 }
 
 export default function AdminPage() {
+  const router = useRouter();
+
+const handleLogout = async () => {
+  await fetch("/api/admin-logout", {
+    method: "POST",
+  });
+
+  router.push("/admin/login");
+  router.refresh();
+};
   const [orders, setOrders] = useState<Order[]>([]);
   const [filterStatus, setFilterStatus] = useState("ทั้งหมด");
   const [search, setSearch] = useState("");
@@ -213,6 +224,13 @@ export default function AdminPage() {
             >
               ดูหน้าสินค้า
             </Link>
+          <button
+  type="button"
+  onClick={handleLogout}
+  className="rounded-full bg-slate-900 px-5 py-3 font-bold text-white"
+>
+  ออกจากระบบ
+</button>
 
             {orders.length > 0 && (
               <button
