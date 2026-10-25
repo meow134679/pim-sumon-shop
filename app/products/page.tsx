@@ -1066,9 +1066,15 @@ if (!availableStock) {
                       {product.category}
                     </p>
 
-                    <span className="rounded-full bg-green-50 px-2 py-1 text-[10px] font-bold text-green-600">
-                      พร้อมสั่งซื้อ
-                    </span>
+                    {isProductInStock(product) ? (
+  <span className="rounded-full bg-green-50 px-2 py-1 text-[10px] font-bold text-green-600">
+    พร้อมสั่งซื้อ
+  </span>
+) : (
+  <span className="rounded-full bg-red-50 px-2 py-1 text-[10px] font-bold text-red-600">
+    ยังไม่มีของ
+  </span>
+)}
                   </div>
 
                   {/* ชื่อสินค้า */}
