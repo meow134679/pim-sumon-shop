@@ -17,10 +17,26 @@ type Product = {
   description?: string;
   packages: PackageOption[];
 };
-if (!isProductInStock(product)) {
-  alert("สินค้าหรือแพ็กเกจนี้หมดสต็อกแล้ว");
-  return;
-}
+
+type CartItem = {
+  id: string;
+  name: string;
+  category: string;
+  icon: string;
+  packageLabel: string;
+  price: number;
+};
+
+type StockItem = {
+  id: string;
+  product: string;
+  packageName: string;
+  email?: string;
+  password?: string;
+  deliveryText?: string;
+  status: "available" | "used";
+  createdAt?: string;
+};
 
 // ======================================================
 // สินค้าทั้งหมด
@@ -733,28 +749,7 @@ if (!productCategory?.enabled) {
 
     if (!selectedPackage) return;
 
-
-// เช็ก Stock ของสินค้า + แพ็กเกจ
-const savedStock = localStorage.getItem("pimSumonStock");
-
-let stockItems: any[] = [];
-
-if (savedStock) {
-  try {
-    stockItems = JSON.parse(savedStock);
-  } catch {
-    stockItems = [];
-  }
-}
-
-const availableStock = stockItems.find(
-  (item) =>
-    item.status === "available" &&
-    item.product === product.name &&
-    item.packageName === selectedPackage.label
-);
-
-if (!availableStock) {
+if (!isProductInStock(product)) {
   alert("สินค้าหรือแพ็กเกจนี้หมดสต็อกแล้ว");
   return;
 }
