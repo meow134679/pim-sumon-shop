@@ -28,47 +28,32 @@ export default function StockPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [deliveryText, setDeliveryText] = useState("");
+
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState("");
 
-  // =========================
-  // โหลด Stock
-  // =========================
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
 
-    if (!saved) {
-      setStocks([]);
-      return;
-    }
+    if (!saved) return;
 
     try {
       const parsed = JSON.parse(saved);
 
       if (Array.isArray(parsed)) {
         setStocks(parsed);
-      } else {
-        setStocks([]);
       }
     } catch {
       setStocks([]);
     }
   }, []);
 
-  // =========================
-  // บันทึก Stock
-  // =========================
-  const saveStocks = (items: StockItem[]) => {
-    setStocks(items);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  const saveStocks = (newStocks: StockItem[]) => {
+    setStocks(newStocks);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newStocks));
   };
 
-  // =========================
-  // เพิ่ม Stock
-  // =========================
   const addStock = () => {
-    setMessage("");
-
     if (!product.trim()) {
       setMessage("กรุณากรอกชื่อสินค้า");
       return;
@@ -102,13 +87,9 @@ export default function StockPage() {
     setEmail("");
     setPassword("");
     setDeliveryText("");
-
-    setMessage("เพิ่ม Stock สำเร็จ");
+    setMessage("");
   };
 
-  // =========================
-  // ลบ Stock
-  // =========================
   const deleteStock = (id: string) => {
     const confirmDelete = window.confirm(
       "ต้องการลบ Stock นี้หรือไม่?"
@@ -116,18 +97,14 @@ export default function StockPage() {
 
     if (!confirmDelete) return;
 
-    const newStocks = stocks.filter((item) => item.id !== id);
-    saveStocks(newStocks);
+    saveStocks(stocks.filter((item) => item.id !== id));
   };
 
-  // =========================
-  // เปลี่ยนสถานะ
-  // =========================
   const changeStatus = (
     id: string,
     status: "available" | "used"
   ) => {
-    const newStocks = stocks.map((item) =>
+    const updated = stocks.map((item) =>
       item.id === id
         ? {
             ...item,
@@ -136,46 +113,39 @@ export default function StockPage() {
         : item
     );
 
-    saveStocks(newStocks);
+    saveStocks(updated);
   };
 
-  // =========================
-  // Copy ข้อมูล
-  // =========================
   const copyStock = async (item: StockItem) => {
     const text = [
-      item.email ? `MAIL - ${item.email}` : "",
-      item.password ? `PASS - ${item.password}` : "",
-      item.deliveryText || "",
+      item.email ? `MAIL — ${item.email}` : "",
+      item.password ? `PASS — ${item.password}` : "",
+      item.deliveryText,
     ]
       .filter(Boolean)
       .join("\n");
 
     try {
       await navigator.clipboard.writeText(text);
-      alert("คัดลอกแล้ว");
+      setMessage("คัดลอกข้อมูลแล้ว ✓");
+
+      setTimeout(() => {
+        setMessage("");
+      }, 2000);
     } catch {
-      alert("ไม่สามารถคัดลอกได้");
+      setMessage("ไม่สามารถคัดลอกได้");
     }
   };
 
-  // =========================
-  // Logout
-  // =========================
   const handleLogout = async () => {
-    try {
-      await fetch("/api/admin-logout", {
-        method: "POST",
-      });
-    } finally {
-      router.push("/admin/login");
-      router.refresh();
-    }
+    await fetch("/api/admin-logout", {
+      method: "POST",
+    });
+
+    router.push("/admin/login");
+    router.refresh();
   };
 
-  // =========================
-  // ค้นหา Stock
-  // =========================
   const filteredStocks = useMemo(() => {
     const keyword = search.trim().toLowerCase();
 
@@ -190,9 +160,6 @@ export default function StockPage() {
     });
   }, [stocks, search]);
 
-  // =========================
-  // จำนวน Stock
-  // =========================
   const availableCount = stocks.filter(
     (item) => item.status === "available"
   ).length;
@@ -202,12 +169,10 @@ export default function StockPage() {
   ).length;
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-pink-50 via-white to-sky-50 px-4 py-8 text-slate-700">
+    <main className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-sky-50 px-4 py-8 text-slate-700">
       <div className="mx-auto max-w-6xl">
-        {/* =========================
-            HEADER
-        ========================== */}
-        <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        {/* Header */}
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <Link
               href="/admin"
@@ -217,25 +182,18 @@ export default function StockPage() {
             </Link>
 
             <h1 className="mt-3 text-3xl font-black text-slate-900">
-              จัดการสต๊อก
+              จัดการสต็อก
             </h1>
 
-            <p className="mt-1 text-sm text-slate-400">
-              เพิ่มบัญชีและจัดการสินค้าพร้อมขาย
+            <p className="mt-1 text-sm text-slate-500">
+              เพิ่มบัญชีแอปและจัดการสินค้าพร้อมขาย
             </p>
           </div>
 
           <div className="flex flex-wrap gap-2">
             <Link
-              href="/admin"
-              className="rounded-full border border-pink-200 bg-white px-5 py-3 font-bold text-pink-500"
-            >
-              ออเดอร์
-            </Link>
-
-            <Link
               href="/products"
-              className="rounded-full border border-sky-200 bg-white px-5 py-3 font-bold text-sky-600"
+              className="rounded-full border border-pink-200 bg-white px-5 py-3 font-bold text-pink-500"
             >
               ดูหน้าสินค้า
             </Link>
@@ -250,13 +208,11 @@ export default function StockPage() {
           </div>
         </div>
 
-        {/* =========================
-            SUMMARY
-        ========================== */}
-        <section className="grid gap-4 md:grid-cols-3">
+        {/* Statistics */}
+        <div className="mt-8 grid gap-4 md:grid-cols-3">
           <div className="rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-pink-100">
             <p className="text-sm text-slate-500">
-              สต๊อกทั้งหมด
+              สต็อกทั้งหมด
             </p>
 
             <p className="mt-2 text-3xl font-black text-slate-900">
@@ -283,18 +239,15 @@ export default function StockPage() {
               {usedCount}
             </p>
           </div>
-        </section>
+        </div>
 
-        {/* =========================
-            ADD STOCK
-        ========================== */}
+        {/* Add Stock */}
         <section className="mt-6 rounded-[32px] bg-white p-6 shadow-sm ring-1 ring-pink-100">
           <h2 className="text-xl font-black text-slate-900">
-            ➕ เติม Stock
+            ➕ เติมสต็อก
           </h2>
 
           <div className="mt-5 grid gap-4 md:grid-cols-2">
-            {/* ชื่อสินค้า */}
             <div>
               <label className="mb-2 block text-sm font-bold">
                 ชื่อสินค้า
@@ -308,7 +261,6 @@ export default function StockPage() {
               />
             </div>
 
-            {/* แพ็กเกจ */}
             <div>
               <label className="mb-2 block text-sm font-bold">
                 แพ็กเกจ
@@ -319,12 +271,11 @@ export default function StockPage() {
                 onChange={(e) =>
                   setPackageName(e.target.value)
                 }
-                placeholder="เช่น 7 DAY Premium"
+                placeholder="เช่น 7 วัน Premium"
                 className="w-full rounded-2xl border border-pink-100 bg-white px-4 py-3 text-black placeholder:text-slate-300 outline-none focus:border-pink-300"
               />
             </div>
 
-            {/* Email */}
             <div>
               <label className="mb-2 block text-sm font-bold">
                 Email / Username
@@ -338,7 +289,6 @@ export default function StockPage() {
               />
             </div>
 
-            {/* Password */}
             <div>
               <label className="mb-2 block text-sm font-bold">
                 Password
@@ -355,7 +305,6 @@ export default function StockPage() {
             </div>
           </div>
 
-          {/* ข้อมูลเพิ่มเติม */}
           <div className="mt-4">
             <label className="mb-2 block text-sm font-bold">
               ข้อมูลสำหรับส่งสินค้า
@@ -374,13 +323,7 @@ CODE: TEST-001`}
           </div>
 
           {message && (
-            <div
-              className={`mt-4 rounded-2xl px-4 py-3 text-sm font-bold ${
-                message.includes("สำเร็จ")
-                  ? "bg-emerald-50 text-emerald-600"
-                  : "bg-red-50 text-red-500"
-              }`}
-            >
+            <div className="mt-4 rounded-2xl bg-pink-50 px-4 py-3 text-sm font-bold text-pink-600">
               {message}
             </div>
           )}
@@ -388,28 +331,24 @@ CODE: TEST-001`}
           <button
             type="button"
             onClick={addStock}
-            className="mt-5 rounded-full bg-gradient-to-r from-pink-500 to-red-500 px-6 py-3 font-bold text-white shadow-sm transition hover:opacity-90"
+            className="mt-5 rounded-full bg-gradient-to-r from-pink-600 to-red-500 px-6 py-3 font-bold text-white"
           >
-            + เพิ่มเข้า Stock
+            + เพิ่มเข้าส Stock
           </button>
         </section>
 
-        {/* =========================
-            SEARCH
-        ========================== */}
-        <section className="mt-6">
+        {/* Search */}
+        <div className="mt-6">
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="ค้นหาชื่อสินค้า หรือแพ็กเกจ..."
             className="w-full rounded-2xl border border-pink-100 bg-white px-5 py-4 text-black placeholder:text-slate-300 outline-none focus:border-pink-300"
           />
-        </section>
+        </div>
 
-        {/* =========================
-            STOCK LIST
-        ========================== */}
-        <section className="mt-5 space-y-4">
+        {/* Stock List */}
+        <div className="mt-5 space-y-4">
           {filteredStocks.length === 0 ? (
             <div className="rounded-[32px] bg-white p-10 text-center shadow-sm ring-1 ring-pink-100">
               <div className="text-5xl"></div>
@@ -453,17 +392,10 @@ CODE: TEST-001`}
                     </p>
 
                     <pre className="mt-4 whitespace-pre-wrap rounded-2xl bg-slate-950 p-4 text-sm text-white">
-{`${item.email ? `MAIL - ${item.email}` : ""}
-${item.password ? `PASS - ${item.password}` : ""}
+{`${item.email ? `MAIL — ${item.email}` : ""}
+${item.password ? `PASS — ${item.password}` : ""}
 ${item.deliveryText || ""}`.trim()}
                     </pre>
-
-                    <p className="mt-3 text-xs text-slate-400">
-                      เพิ่มเมื่อ{" "}
-                      {new Date(
-                        item.createdAt
-                      ).toLocaleString("th-TH")}
-                    </p>
 
                     <div className="mt-4 flex flex-wrap gap-2">
                       <button
@@ -478,10 +410,7 @@ ${item.deliveryText || ""}`.trim()}
                         <button
                           type="button"
                           onClick={() =>
-                            changeStatus(
-                              item.id,
-                              "used"
-                            )
+                            changeStatus(item.id, "used")
                           }
                           className="rounded-full bg-orange-50 px-4 py-2 text-sm font-bold text-orange-600"
                         >
@@ -498,26 +427,24 @@ ${item.deliveryText || ""}`.trim()}
                           }
                           className="rounded-full bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-600"
                         >
-                          กลับเป็นพร้อมขาย
+                          คืนเป็นพร้อมขาย
                         </button>
                       )}
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          deleteStock(item.id)
-                        }
-                        className="rounded-full bg-red-50 px-4 py-2 text-sm font-bold text-red-500"
-                      >
-                        ลบ
-                      </button>
                     </div>
                   </div>
+
+                  <button
+                    type="button"
+                    onClick={() => deleteStock(item.id)}
+                    className="rounded-full bg-red-50 px-4 py-2 text-sm font-bold text-red-500"
+                  >
+                    ลบ
+                  </button>
                 </div>
               </div>
             ))
           )}
-        </section>
+        </div>
       </div>
     </main>
   );
