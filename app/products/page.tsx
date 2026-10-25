@@ -710,10 +710,7 @@ if (!productCategory?.enabled) {
       product.packages[selectedIndex];
 
     if (!selectedPackage) return;
-const selectedPackage =
-  product.packages[selectedIndex];
 
-if (!selectedPackage) return;
 
 // เช็ก Stock ของสินค้า + แพ็กเกจ
 const savedStock = localStorage.getItem("pimSumonStock");
