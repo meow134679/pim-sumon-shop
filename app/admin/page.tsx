@@ -197,7 +197,7 @@ export default function StockPage() {
                 value={product}
                 onChange={(e) => setProduct(e.target.value)}
                 placeholder="เช่น iQIYI"
-                className="w-full rounded-2xl border border-pink-100 px-4 py-3 text-slate-900 placeholder:text-slate-400 outline-none focus:border-pink-300"
+                className="text-black placeholder:text-slate-300"
               />
             </div>
 
@@ -210,7 +210,7 @@ export default function StockPage() {
                 value={packageName}
                 onChange={(e) => setPackageName(e.target.value)}
                 placeholder="เช่น 7 วัน Premium"
-                className="w-full rounded-2xl border border-pink-100 px-4 py-3 outline-none focus:border-pink-300"
+                className="text-black placeholder:text-slate-300"
               />
             </div>
           </div>
