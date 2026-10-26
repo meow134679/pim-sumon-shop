@@ -142,7 +142,7 @@ export default function CheckoutPage() {
     return `PS-${year}${month}${day}-${hour}${minute}${second}-${random}`;
   };
 
-  const submitOrder = () => {
+  const submitOrder = async () => {
     setMessage("");
 
     if (cart.length === 0) {
@@ -166,6 +166,45 @@ export default function CheckoutPage() {
     }
 
     setSubmitting(true);
+
+    try {
+const stockItems = cart.filter(
+  (item) => item.category === "แอปพรีเมียม"
+);
+
+for (const item of stockItems) {
+  if (!item.packageLabel) {
+    throw new Error(
+      `ไม่พบชื่อแพ็กเกจของ ${item.name}`
+    );
+  }
+
+  const suffix = ` - ${item.packageLabel}`;
+
+  const productName = item.name.endsWith(suffix)
+    ? item.name.slice(0, -suffix.length)
+    : item.name;
+
+  const response = await fetch("/api/stock/claim", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      product: productName.trim(),
+      packageName: item.packageLabel.trim(),
+    }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok || !data.success) {
+    throw new Error(
+      data.message ||
+        `${productName} หมด Stock`
+    );
+  }
+}
 
     const orderId = createOrderId();
 
@@ -231,8 +270,17 @@ export default function CheckoutPage() {
         "ไม่สามารถบันทึกออเดอร์ได้ รูปสลิปอาจมีขนาดใหญ่เกินไป กรุณาใช้รูปที่มีขนาดเล็กลง"
       );
     }
-  };
+  } catch (error) {
+    setSubmitting(false);
 
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : "ไม่สามารถสร้างคำสั่งซื้อได้";
+
+    setMessage(errorMessage);
+  }
+};
   return (
     <main className="min-h-screen bg-gradient-to-b from-pink-50 via-white to-sky-50 text-slate-700">
       <div className="mx-auto max-w-2xl px-5 py-10">
@@ -586,4 +634,3 @@ export default function CheckoutPage() {
     </main>
   );
 }
-
