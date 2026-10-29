@@ -651,22 +651,53 @@ useEffect(() => {
   loadStocks();
 }, []);
 
+const normalize = (value: string) =>
+  value.trim().toLowerCase();
+
+const getStockCount = (
+  product: Product,
+  packageName: string
+) => {
+  return stocks.filter(
+    (item) =>
+      item.status === "available" &&
+      normalize(item.product) === normalize(product.name) &&
+      normalize(item.packageName) === normalize(packageName)
+  ).length;
+};
+
+const getCartCount = (
+  product: Product,
+  packageName: string
+) => {
+  return cart.filter(
+    (item) =>
+      item.name === `${product.name} - ${packageName}` &&
+      item.packageLabel === packageName
+  ).length;
+};
+
+const getRemainingStock = (
+  product: Product,
+  packageName: string
+) => {
+  return Math.max(
+    0,
+    getStockCount(product, packageName) -
+      getCartCount(product, packageName)
+  );
+};
+
 const isProductInStock = (product: Product) => {
   const selectedIndex = selectedPackages[product.id] ?? 0;
   const selectedPackage = product.packages[selectedIndex];
 
-  if (!selectedPackage) return false;
+  if (!stockLoaded || !selectedPackage) return false;
 
-  return stocks.some(
-    (item) =>
-      item.status === "available" &&
-      item.product.trim().toLowerCase() ===
-        product.name.trim().toLowerCase() &&
-      item.packageName.trim().toLowerCase() ===
-        selectedPackage.label.trim().toLowerCase()
+  return (
+    getRemainingStock(product, selectedPackage.label) > 0
   );
 };
-
   // ======================================================
   // โหลดตะกร้าจาก localStorage
   // ======================================================
@@ -731,48 +762,72 @@ const isProductInStock = (product: Product) => {
   // เพิ่มสินค้าเข้าตะกร้า
   // ======================================================
 
-  const addToCart = (product: Product) => {
-// ป้องกันสินค้าหมวดที่ยังไม่เปิดขาย
-const productCategory = categories.find(
-  (item) => item.name === product.category
-);
+const addToCart = (product: Product) => {
+  const productCategory = categories.find(
+    (item) => item.name === product.category
+  );
 
-if (!productCategory?.enabled) {
-  return;
-}
+  if (!productCategory?.enabled) return;
 
-    const selectedIndex =
-      selectedPackages[product.id] ?? 0;
+  const selectedIndex = selectedPackages[product.id] ?? 0;
+  const selectedPackage = product.packages[selectedIndex];
 
-    const selectedPackage =
-      product.packages[selectedIndex];
+  if (!selectedPackage) return;
 
-    if (!selectedPackage) return;
+  if (!stockLoaded) {
+    alert("กำลังตรวจสอบสต็อก กรุณารอสักครู่");
+    return;
+  }
 
-if (!isProductInStock(product)) {
-  alert("สินค้าหรือแพ็กเกจนี้หมดสต็อกแล้ว");
-  return;
-}
+  const remaining = getRemainingStock(
+    product,
+    selectedPackage.label
+  );
 
-    const newItem: CartItem = {
-      id: `${product.id}-${Date.now()}`,
-      name: `${product.name} - ${selectedPackage.label}`,
-      category: product.category,
-      icon: product.icon,
-      packageLabel: selectedPackage.label,
-      price: selectedPackage.price,
-    };
+  if (remaining <= 0) {
+    alert("สินค้าหรือแพ็กเกจนี้ครบจำนวนสต็อกแล้ว");
+    return;
+  }
 
-    const newCart = [...cart, newItem];
+  const newItem: CartItem = {
+    id: `${product.id}-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 8)}`,
+    name: `${product.name} - ${selectedPackage.label}`,
+    category: product.category,
+    icon: product.icon,
+    packageLabel: selectedPackage.label,
+    price: selectedPackage.price,
+  };
 
-    setCart(newCart);
+  setCart((currentCart) => {
+    const currentCount = currentCart.filter(
+      (item) =>
+        item.category === product.category &&
+        item.packageLabel === selectedPackage.label &&
+        item.name ===
+          `${product.name} - ${selectedPackage.label}`
+    ).length;
+
+    const available = getStockCount(
+      product,
+      selectedPackage.label
+    );
+
+    if (currentCount >= available) {
+      return currentCart;
+    }
+
+    const newCart = [...currentCart, newItem];
 
     localStorage.setItem(
       "pimSumonCart",
       JSON.stringify(newCart)
     );
-  };
 
+    return newCart;
+  });
+};
   // ======================================================
   // ลบสินค้าออกจากตะกร้า
   // ======================================================
@@ -1106,31 +1161,38 @@ if (!isProductInStock(product)) {
                     <label className="text-xs font-bold text-slate-500">
                       เลือกแพ็กเกจ
                     </label>
+<select
+  value={selectedIndex}
+  onChange={(event) =>
+    setSelectedPackages((current) => ({
+      ...current,
+      [product.id]: Number(event.target.value),
+    }))
+  }
+  className="mt-2 w-full rounded-2xl border border-pink-100 bg-white px-3 py-3 text-slate-800 outline-none focus:border-pink-300"
+>
+  {product.packages.map((packageOption, index) => {
+    const remaining = getRemainingStock(
+      product,
+      packageOption.label
+    );
 
-                    <select
-                      value={selectedIndex}
-                      onChange={(event) =>
-                        setSelectedPackages((current) => ({
-                          ...current,
-                          [product.id]: Number(
-                            event.target.value
-                          ),
-                        }))
-                      }
-                      className="mt-2 w-full rounded-2xl border border-pink-100 bg-white px-3 py-3 outline-none transition focus:border-pink-300"
-                    >
-                      {product.packages.map(
-                        (packageOption, index) => (
-                          <option
-                            key={`${product.id}-${index}`}
-                            value={index}
-                          >
-                            {packageOption.label} - ฿
-                            {packageOption.price}
-                          </option>
-                        )
-                      )}
-                    </select>
+    return (
+      <option
+        key={`${product.id}-${index}`}
+        value={index}
+      >
+        {packageOption.label} - ฿{packageOption.price}
+        {" | "}
+        {!stockLoaded
+          ? "กำลังโหลด"
+          : remaining > 0
+          ? `เหลือ ${remaining} ชิ้น`
+          : "สินค้าหมด"}
+      </option>
+    );
+  })}
+</select>
                   </div>
 
                   {/* ราคา */}
@@ -1148,7 +1210,53 @@ if (!isProductInStock(product)) {
                       ฿{selectedPackage.price}
                     </p>
                   </div>
+{/* แสดงจำนวน Stock ของแพ็กเกจที่เลือก */}
+<div className="mt-3 rounded-xl border border-pink-100 bg-white p-3">
+  <p className="text-sm font-semibold text-slate-700">
+    จำนวนสินค้าใน Stock
+  </p >
 
+  {!stockLoaded ? (
+    <p className="mt-1 text-sm text-slate-400">
+      กำลังโหลด Stock...
+    </p >
+  ) : (
+    <p
+      className={`mt-1 text-sm font-bold ${
+        stocks.filter(
+          (item) =>
+            item.status === "available" &&
+            item.product.trim().toLowerCase() ===
+              product.name.trim().toLowerCase() &&
+            item.packageName.trim().toLowerCase() ===
+              selectedPackage.label.trim().toLowerCase()
+        ).length > 0
+          ? "text-green-600"
+          : "text-red-500"
+      }`}
+    >
+      {stocks.filter(
+        (item) =>
+          item.status === "available" &&
+          item.product.trim().toLowerCase() ===
+            product.name.trim().toLowerCase() &&
+          item.packageName.trim().toLowerCase() ===
+            selectedPackage.label.trim().toLowerCase()
+      ).length > 0
+        ? `พร้อมขาย ${
+            stocks.filter(
+              (item) =>
+                item.status === "available" &&
+                item.product.trim().toLowerCase() ===
+                  product.name.trim().toLowerCase() &&
+                item.packageName.trim().toLowerCase() ===
+                  selectedPackage.label.trim().toLowerCase()
+            ).length
+          } ชิ้น`
+        : "สินค้าหมด"}
+    </p >
+  )}
+</div>
                   {/* เพิ่มตะกร้า */}
 
 <button
