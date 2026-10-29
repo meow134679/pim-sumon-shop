@@ -614,6 +614,9 @@ export default function ProductsPage() {
   >({});
 
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [quantities, setQuantities] = useState<
+  Record<string, number>
+>({});
 const [stocks, setStocks] = useState<StockItem[]>([]);
 const [stockLoaded, setStockLoaded] = useState(false);
 
@@ -652,7 +655,10 @@ useEffect(() => {
 }, []);
 
 const normalize = (value: string) =>
-  value.trim().toLowerCase();
+  String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "");
 
 const getStockCount = (
   product: Product,
@@ -762,6 +768,7 @@ const isProductInStock = (product: Product) => {
   // เพิ่มสินค้าเข้าตะกร้า
   // ======================================================
 
+
 const addToCart = (product: Product) => {
   const productCategory = categories.find(
     (item) => item.name === product.category
@@ -769,64 +776,75 @@ const addToCart = (product: Product) => {
 
   if (!productCategory?.enabled) return;
 
-  const selectedIndex = selectedPackages[product.id] ?? 0;
-  const selectedPackage = product.packages[selectedIndex];
-
-  if (!selectedPackage) return;
-
   if (!stockLoaded) {
     alert("กำลังตรวจสอบสต็อก กรุณารอสักครู่");
     return;
   }
 
-  const remaining = getRemainingStock(
-    product,
-    selectedPackage.label
+  const selectedItems = product.packages.flatMap(
+    (packageOption, index) => {
+      const key = `${product.id}-${index}`;
+      const quantity = quantities[key] ?? 0;
+
+      if (quantity <= 0) return [];
+
+      return [{ packageOption, quantity }];
+    }
   );
 
-  if (remaining <= 0) {
-    alert("สินค้าหรือแพ็กเกจนี้ครบจำนวนสต็อกแล้ว");
+  if (selectedItems.length === 0) {
+    alert("กรุณากด + เพื่อเลือกจำนวนสินค้าก่อน");
     return;
   }
 
-  const newItem: CartItem = {
-    id: `${product.id}-${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2, 8)}`,
-    name: `${product.name} - ${selectedPackage.label}`,
-    category: product.category,
-    icon: product.icon,
-    packageLabel: selectedPackage.label,
-    price: selectedPackage.price,
-  };
+  const newItems: CartItem[] = [];
 
-  setCart((currentCart) => {
-    const currentCount = currentCart.filter(
-      (item) =>
-        item.category === product.category &&
-        item.packageLabel === selectedPackage.label &&
-        item.name ===
-          `${product.name} - ${selectedPackage.label}`
-    ).length;
-
-    const available = getStockCount(
+  for (const { packageOption, quantity } of selectedItems) {
+    const remaining = getRemainingStock(
       product,
-      selectedPackage.label
+      packageOption.label
     );
 
-    if (currentCount >= available) {
-      return currentCart;
+    if (quantity > remaining) {
+      alert(
+        `${packageOption.label} เหลือ ${remaining} ชิ้น กรุณาลดจำนวน`
+      );
+      return;
     }
 
-    const newCart = [...currentCart, newItem];
+    for (let i = 0; i < quantity; i++) {
+      newItems.push({
+        id: `${product.id}-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 8)}`,
+        name: `${product.name} - ${packageOption.label}`,
+        category: product.category,
+        icon: product.icon,
+        packageLabel: packageOption.label,
+        price: packageOption.price,
+      });
+    }
+  }
 
-    localStorage.setItem(
-      "pimSumonCart",
-      JSON.stringify(newCart)
-    );
+  const newCart = [...cart, ...newItems];
 
-    return newCart;
+  setCart(newCart);
+  localStorage.setItem(
+    "pimSumonCart",
+    JSON.stringify(newCart)
+  );
+
+  setQuantities((current) => {
+    const updated = { ...current };
+
+    product.packages.forEach((_, index) => {
+      delete updated[`${product.id}-${index}`];
+    });
+
+    return updated;
   });
+
+  alert(`เพิ่มสินค้า ${newItems.length} ชิ้นลงตะกร้าแล้ว`);
 };
   // ======================================================
   // ลบสินค้าออกจากตะกร้า
@@ -1161,41 +1179,90 @@ const addToCart = (product: Product) => {
                     <label className="text-xs font-bold text-slate-500">
                       เลือกแพ็กเกจ
                     </label>
-<select
-  value={selectedIndex}
-  onChange={(event) =>
-    setSelectedPackages((current) => ({
-      ...current,
-      [product.id]: Number(event.target.value),
-    }))
-  }
-  className="mt-2 w-full rounded-2xl border border-pink-100 bg-white px-3 py-3 text-slate-800 outline-none focus:border-pink-300"
->
-  {product.packages.map((packageOption, index) => {
-    const remaining = getRemainingStock(
-      product,
-      packageOption.label
-    );
 
-    return (
-      <option
-        key={`${product.id}-${index}`}
-        value={index}
-      >
-        {packageOption.label} - ฿{packageOption.price}
-        {" | "}
-        {!stockLoaded
-          ? "กำลังโหลด"
-          : remaining > 0
-          ? `เหลือ ${remaining} ชิ้น`
-          : "สินค้าหมด"}
-      </option>
-    );
-  })}
-</select>
-                  </div>
+{product.packages.map((packageOption, index) => {
+  const key = `${product.id}-${index}`;
+  const available = getStockCount(
+    product,
+    packageOption.label
+  );
+  const quantity = quantities[key] ?? 0;
+  const remaining = Math.max(
+    0,
+    available - getCartCount(product, packageOption.label)
+  );
 
-                  {/* ราคา */}
+  return (
+    <div
+      key={key}
+      className={`mt-3 rounded-2xl border p-4 ${
+        quantity > 0
+          ? "border-pink-400 bg-pink-50"
+          : "border-slate-200 bg-white"
+      }`}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="font-bold text-slate-800">
+            {packageOption.label}
+          </p >
+          <p
+            className={`mt-1 text-xs font-semibold ${
+              remaining > 0
+                ? "text-green-600"
+                : "text-red-500"
+            }`}
+          >
+            {remaining > 0
+              ? `พร้อมขาย ${remaining} ชิ้น`
+              : "สินค้าหมด"}
+          </p >
+        </div>
+
+        <p className="font-bold text-pink-600">
+          ฿{packageOption.price}
+        </p >
+      </div>
+
+      <div className="mt-3 flex items-center justify-end gap-3">
+        <button
+          type="button"
+          disabled={quantity <= 0}
+          onClick={() =>
+            setQuantities((current) => ({
+              ...current,
+              [key]: Math.max(0, quantity - 1),
+            }))
+          }
+          className="rounded-xl border px-4 py-2 disabled:opacity-40"
+        >
+          −
+        </button>
+
+        <span className="min-w-8 text-center font-bold">
+          {quantity}
+        </span>
+
+        <button
+          type="button"
+          disabled={!stockLoaded || quantity >= remaining}
+          onClick={() =>
+            setQuantities((current) => ({
+              ...current,
+              [key]: quantity + 1,
+            }))
+          }
+          className="rounded-xl bg-pink-100 px-4 py-2 text-pink-600 disabled:opacity-40"
+        >
+          +
+        </button>
+      </div>
+    </div>
+  );
+})}
+</div>
+
+{/* ราคา */}
 
                   <div className="mt-5 rounded-2xl bg-pink-50 p-4">
                     <p className="text-xs text-slate-400">
@@ -1262,14 +1329,34 @@ const addToCart = (product: Product) => {
 <button
   type="button"
   onClick={() => addToCart(product)}
-  disabled={!isProductInStock(product)}
+  disabled={
+    !stockLoaded ||
+    !isProductInStock(product) ||
+    !product.packages.some(
+      (_, index) =>
+        (quantities[`${product.id}-${index}`] ?? 0) > 0
+    )
+  }
   className={`mt-5 w-full rounded-full py-3 font-bold transition ${
-    isProductInStock(product)
+    stockLoaded &&
+    isProductInStock(product) &&
+    product.packages.some(
+      (_, index) =>
+        (quantities[`${product.id}-${index}`] ?? 0) > 0
+    )
       ? "bg-pink-500 text-white hover:bg-pink-600 active:scale-[0.98]"
       : "cursor-not-allowed bg-slate-200 text-slate-400"
   }`}
 >
-  {isProductInStock(product) ? "เพิ่มลงตะกร้า 🛒" : "สินค้าหมด"}
+  {!stockLoaded
+    ? "กำลังตรวจสอบสต็อก..."
+    : !isProductInStock(product)
+    ? "สินค้าหมด"
+    : `🛒 เพิ่มลงตะกร้า (${product.packages.reduce(
+        (total, _, index) =>
+          total + (quantities[`${product.id}-${index}`] ?? 0),
+        0
+      )} ชิ้น)`}
 </button>
                 </div>
               );
