@@ -85,7 +85,7 @@ export async function POST(request: Request) {
 
     const matched =
       response.ok &&
-      String(result.code) === "200000" &&
+      String(result.code) === "200200" &&
       Number(result.data?.amount).toFixed(2) === amount.toFixed(2);
 
     return NextResponse.json(
