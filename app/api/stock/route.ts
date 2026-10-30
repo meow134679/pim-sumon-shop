@@ -1,11 +1,7 @@
-
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID, timingSafeEqual } from "node:crypto";
-
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 
 const headers = {
   "Cache-Control": "private, no-store, max-age=0",
